@@ -1,0 +1,9 @@
+tunnel: c23e6e6a-0a58-490c-8127-990c4c3c934e
+credentials-file: tunnel-credentials.json
+
+ingress:
+  - hostname: engilog.site
+    service: http://localhost:3000
+  - hostname: api.engilog.site
+    service: http://localhost:5000
+  - service: http_status:404
