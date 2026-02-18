@@ -6,6 +6,12 @@ import { createPortal } from "react-dom"
 // Helper to construct full image URL
 export const getImageUrl = (path: string, apiUrl: string) => {
     if (!path) return "";
+
+    // Check if path is an absolute localhost URL but we are on a different domain (e.g. tunnel)
+    if (path.includes("localhost:5000") && apiUrl && !apiUrl.includes("localhost")) {
+        return path.replace("http://localhost:5000", apiUrl);
+    }
+
     if (path.startsWith("http")) return path;
     if (path.startsWith("data:")) return path; // Base64
 
@@ -160,7 +166,7 @@ export function ImageGallery({ images }: { images: string[] }) {
     const [zoomPhoto, setZoomPhoto] = useState<string | null>(null);
 
     const API_URL = typeof window !== 'undefined'
-        ? `http://${window.location.hostname}:5000`
+        ? (window.location.hostname === 'localhost' ? "http://localhost:5000" : "https://api.engilog.site")
         : "http://localhost:5000";
 
     // Track if a drag occurred to prevent clicking after dragging

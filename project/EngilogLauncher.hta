@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EngiLog Application Launcher</title>
+    <HTA:APPLICATION 
+        ID="oApp" 
+        APPLICATIONNAME="EngiLog Launcher" 
+        BORDER="thin" 
+        CAPTION="yes" 
+        ICON="frontend/public/favicon.ico" 
+        SHOWINTASKBAR="yes" 
+        SINGLEINSTANCE="yes" 
+        SYSMENU="yes"
+        SCROLL="no"
+        MaximizeButton="no"
+        MinimizeButton="yes"
+    >
+    <style>
+        body {
+            background-color: #1e1b4b; /* Indigo-950 */
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #818cf8; /* Indigo-400 */
+        }
+        p {
+            font-size: 14px;
+            color: #a5b4fc; /* Indigo-200 */
+            margin-bottom: 30px;
+        }
+        .btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+            width: 200px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.4);
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        }
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .btn-quit {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+        }
+        .btn-quit:hover {
+            background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+        }
+        .status {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #6366f1;
+        }
+    </style>
+    <script language="VBScript">
+        Sub Window_OnLoad
+            window.resizeTo 400, 350
+            Dim width, height
+            width = 400
+            height = 350
+            window.moveTo (screen.width - width) / 2, (screen.height - height) / 2
+        End Sub
+
+        Sub RunBatch
+            Set shell = CreateObject("WScript.Shell")
+            ' Run Engilog.bat in invisible mode handled by the bat itself/launcher
+            shell.Run "Engilog.bat", 0, False
+            MsgBox "EngiLog is starting in the background..." & vbCrLf & "Please wait for the browser to open.", 64, "EngiLog Started"
+            window.close()
+        End Sub
+
+        Sub QuitApp
+            window.close()
+        End Sub
+    </script>
+</head>
+<body>
+    <h1>EngiLog System</h1>
+    <p>Engineering Logistics Management</p>
+    
+    <div>
+        <button class="btn" onclick="RunBatch()">START APP</button>
+    </div>
+    <div>
+        <button class="btn btn-quit" onclick="QuitApp()">QUIT</button>
+    </div>
+
+    <div class="status">v2.0 Premium Launcher</div>
+</body>
+</html>

@@ -27,7 +27,7 @@ export default function MobileBottomNav() {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    "md:hidden fixed left-1/2 -translate-x-1/2 z-[60] w-12 h-12 rounded-full border border-slate-100 shadow-lg flex items-center justify-center transition-all duration-500 ease-in-out",
+                    "md:hidden fixed left-1/2 -translate-x-1/2 z-[100] w-12 h-12 rounded-full border border-slate-100 shadow-lg flex items-center justify-center transition-all duration-500 ease-in-out",
                     isOpen
                         ? "bottom-[75px] bg-white text-indigo-600 border-indigo-50" // Floating nicely above the bar
                         : "bottom-4 bg-white/90 backdrop-blur text-slate-600 border-slate-200" // Floating at bottom when menu is gone
@@ -45,7 +45,7 @@ export default function MobileBottomNav() {
             {/* Sliding Nav Container */}
             <div
                 className={cn(
-                    "md:hidden fixed bottom-0 left-0 right-0 z-50 transition-transform duration-500 ease-in-out bg-white/95 backdrop-blur-xl border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]",
+                    "md:hidden fixed bottom-0 left-0 right-0 z-[100] transition-transform duration-500 ease-in-out bg-white/95 backdrop-blur-xl border-t border-slate-200/60 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]",
                     isOpen ? "translate-y-0" : "translate-y-[110%]"
                 )}
             >

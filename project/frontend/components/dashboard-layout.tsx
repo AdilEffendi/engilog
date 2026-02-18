@@ -20,7 +20,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <DashboardHeader />
 
       {/* Main Content Area - padded to account for fixed header and mobile bottom nav */}
-      <div className="pt-24 pb-24 md:pb-12 min-h-screen">
+      <div className="pt-16 md:pt-24 pb-24 md:pb-12 min-h-screen">
         <div className="container mx-auto px-4 md:px-6">
           {children}
         </div>

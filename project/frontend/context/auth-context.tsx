@@ -100,6 +100,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  // Setup Axios Interceptor to add User ID to requests
+  useEffect(() => {
+    const interceptor = axios.interceptors.request.use(config => {
+      if (user?.id) {
+        config.headers['x-user-id'] = user.id;
+      }
+      return config;
+    });
+    return () => {
+      axios.interceptors.request.eject(interceptor);
+    }
+  }, [user]);
+
+
   const fetchItems = async () => {
     try {
       const res = await axios.get(`${API_URL}/items`);
@@ -125,12 +139,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Session Timeout Logic (10 minutes)
+  const TIMEOUT_DURATION = 10 * 60 * 1000; // 10 minutes in ms
+
+  const updateActivity = () => {
+    if (user) {
+      localStorage.setItem("auth_last_active", Date.now().toString());
+    }
+  };
+
+  const checkSessionTimeout = () => {
+    const lastActive = localStorage.getItem("auth_last_active");
+    if (lastActive) {
+      const now = Date.now();
+      if (now - parseInt(lastActive) > TIMEOUT_DURATION) {
+        console.log("Session timed out due to inactivity");
+        logout();
+      }
+    }
+  };
+
+  // Setup activity listeners
+  useEffect(() => {
+    if (!user) return;
+
+    // Set initial activity timestamp if missing
+    if (!localStorage.getItem("auth_last_active")) {
+      updateActivity();
+    }
+
+    // Check timeout immediately on mount (for re-entry)
+    checkSessionTimeout();
+
+    const events = ["mousemove", "click", "keypress", "scroll", "touchstart"];
+
+    // Throttle updates to avoid excessive localStorage writes
+    let throttleTimer: NodeJS.Timeout;
+    const handleActivity = () => {
+      if (!throttleTimer) {
+        updateActivity();
+        throttleTimer = setTimeout(() => {
+          throttleTimer = undefined!;
+        }, 5000); // Update at most every 5 seconds
+      }
+    };
+
+    events.forEach(event => window.addEventListener(event, handleActivity));
+
+    // Check for timeout every 1 minute
+    const interval = setInterval(checkSessionTimeout, 60000);
+
+    return () => {
+      events.forEach(event => window.removeEventListener(event, handleActivity));
+      clearInterval(interval);
+      if (throttleTimer) clearTimeout(throttleTimer);
+    };
+  }, [user]);
+
   const login = async (username: string, password: string) => {
     try {
       const res = await axios.post(`${API_URL}/auth/login`, { username, password });
       const userData = res.data;
       setUser(userData);
       localStorage.setItem("currentUser", JSON.stringify(userData));
+      localStorage.setItem("auth_last_active", Date.now().toString()); // Initialize activity
 
       // Refresh data
       await fetchItems();
@@ -145,8 +217,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem("currentUser")
+    localStorage.removeItem("auth_last_active") // Clear activity
     setItems([])
     setUsers([])
+    // Redirect to login is handled by protected route wrapper or effect
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
   }
 
   const addItem = async (itemData: any) => {

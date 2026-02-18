@@ -10,6 +10,10 @@ import { ResolveModal } from "@/components/maintenance/resolve-modal"
 import { EditMaintenanceModal } from "@/components/maintenance/edit-maintenance-modal"
 import { TableImagePreview } from "@/components/table-image-preview"
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { generateMaintenancePDF } from "@/lib/pdf-utils"
+
 // Helper for consistent date formatting
 const formatDate = (dateString: string | undefined) => {
   if (!dateString) return "-"
@@ -26,6 +30,11 @@ export default function MaintenancePage() {
 
   const [filterStatus, setFilterStatus] = useState("All")
   const [searchTerm, setSearchTerm] = useState("")
+
+  // PDF Selection State
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -159,27 +168,130 @@ export default function MaintenancePage() {
     setIsEditOpen(false);
   }
 
+  // Export Logic
+  const handleExportPDF = (type: 'all' | 'selected' | 'mode') => {
+    if (type === 'mode') {
+      setIsSelectionMode(true);
+      setIsExportDialogOpen(false);
+      toast.info("Mode pemilihan aktif. Silakan pilih riwayat yang ingin dicetak.");
+      return;
+    }
+
+    const itemsToExport = type === 'all'
+      ? filteredHistory
+      : filteredHistory.filter((item: any) => selectedIds.includes(item.id.toString()));
+
+    if (itemsToExport.length === 0) {
+      toast.error("Tidak ada data untuk diekspor");
+      return;
+    }
+
+    generateMaintenancePDF(itemsToExport);
+    setIsExportDialogOpen(false);
+    setIsSelectionMode(false);
+    setSelectedIds([]);
+    toast.success("Laporan PDF berhasil dibuat");
+  }
+
+  const cancelSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedIds([]);
+  }
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Maintenance & Perbaikan</h1>
-          <p className="text-slate-500 mt-1">Monitor status mesin dan riwayat perbaikan</p>
+          <h1 className="text-xl md:text-3xl font-bold text-slate-800 tracking-tight">Maintenance & Perbaikan</h1>
+          <p className="text-xs md:text-base text-slate-500 mt-1">Monitor status mesin dan riwayat perbaikan</p>
         </div>
         {(user?.role === "superadmin" || user?.role === "admin" || user?.role === "teknisi") && (
-          <button
-            onClick={() => setIsReportOpen(true)}
-            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM6.75 9.25a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clipRule="evenodd" />
-            </svg>
-            <span className="font-semibold">Lapor Kerusakan</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+              <DialogTrigger asChild>
+                <button
+                  className="flex flex-1 md:flex-none items-center justify-center gap-2 bg-slate-800 text-white px-3 py-2 md:px-5 md:py-2.5 rounded-xl hover:bg-slate-900 transition-all font-semibold active:scale-95 shadow-md text-xs md:text-sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 md:w-5 md:h-5">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.03 9.11a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 00-1.06-1.06l-2.22 2.22v-4.59z" clipRule="evenodd" />
+                  </svg>
+                  Cetak PDF
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md rounded-3xl">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black text-slate-800">Opsi Cetak PDF</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 gap-4 mt-4">
+                  <button
+                    onClick={() => handleExportPDF('all')}
+                    className="flex flex-col items-start p-4 border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 rounded-2xl transition-all group"
+                  >
+                    <span className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Cetak Semua Riwayat</span>
+                    <span className="text-xs text-slate-500 mt-1 text-left">Ekspor seluruh data riwayat yang ditampilkan ({filteredHistory.length} data).</span>
+                  </button>
+                  <button
+                    onClick={() => handleExportPDF('mode')}
+                    className="flex flex-col items-start p-4 border-2 border-slate-100 hover:border-violet-500 hover:bg-violet-50/50 rounded-2xl transition-all group"
+                  >
+                    <span className="font-bold text-slate-800 group-hover:text-violet-600 transition-colors">Pilih Secara Manual</span>
+                    <span className="text-xs text-slate-500 mt-1 text-left">Aktifkan kotak centang untuk memilih riwayat satu per satu.</span>
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <button
+              onClick={() => setIsReportOpen(true)}
+              className="flex flex-1 md:flex-none items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-3 py-2 md:px-4 md:py-2.5 rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 text-xs md:text-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 md:w-5 md:h-5">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM6.75 9.25a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clipRule="evenodd" />
+              </svg>
+              <span className="font-semibold">Lapor Kerusakan</span>
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Floating Selection Bar */}
+      {isSelectionMode && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-2xl animate-in slide-in-from-bottom-8 duration-300">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 pl-2">
+              <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/30">
+                {selectedIds.length}
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">Item Terpilih</p>
+                <p className="text-slate-400 text-[10px] uppercase tracking-wider">Laporan Siap Dicetak</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={cancelSelection}
+                className="px-4 py-2 text-slate-300 hover:text-white text-sm font-semibold transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => handleExportPDF('selected')}
+                disabled={selectedIds.length === 0}
+                className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+              >
+                Cetak PDF ({selectedIds.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -225,27 +337,27 @@ export default function MaintenancePage() {
                 : null;
 
               return (
-                <div key={item.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all group">
-                  <div className="flex justify-between items-start mb-4">
+                <div key={item.id} className="bg-white p-3 md:p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all group">
+                  <div className="flex justify-between items-start mb-3 md:mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-lg font-bold text-slate-600">
+                      <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-100 rounded-lg flex items-center justify-center text-sm md:text-lg font-bold text-slate-600">
                         {item.name.charAt(0)}
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-800">{item.name}</h3>
-                        <p className="text-xs text-slate-500 font-mono">{item.assetId} • {item.location}</p>
+                        <h3 className="font-bold text-sm md:text-base text-slate-800">{item.name}</h3>
+                        <p className="text-[10px] md:text-xs text-slate-500 font-mono">{item.assetId} • {item.location}</p>
                       </div>
                     </div>
-                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${item.statusMesin === 'Rusak' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                    <span className={`px-2 py-0.5 md:py-1 rounded-md text-[10px] md:text-xs font-bold ${item.statusMesin === 'Rusak' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
                       }`}>
                       {item.statusMesin}
                     </span>
                   </div>
 
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 mb-4">
-                    <p className="text-sm text-slate-500 mb-1">Masalah:</p>
-                    <p className="font-semibold text-slate-800">{lastRecord ? lastRecord.penyebab : "Belum ada detail kerusakan"}</p>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                  <div className="bg-slate-50 p-2.5 md:p-3 rounded-xl border border-slate-100 mb-3 md:mb-4">
+                    <p className="text-xs md:text-sm text-slate-500 mb-0.5 md:mb-1">Masalah:</p>
+                    <p className="font-semibold text-xs md:text-base text-slate-800">{lastRecord ? lastRecord.penyebab : "Belum ada detail kerusakan"}</p>
+                    <div className="flex items-center gap-4 mt-2 text-[10px] md:text-xs text-slate-400">
                       <span className="flex items-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
                           <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
@@ -258,7 +370,7 @@ export default function MaintenancePage() {
                   {(user?.role === "superadmin" || user?.role === "admin" || user?.role === "teknisi") && (
                     <button
                       onClick={() => handleResolveIssue(item)}
-                      className="w-full py-2 bg-indigo-50 text-indigo-600 font-semibold rounded-lg hover:bg-indigo-100 transition-colors text-sm"
+                      className="w-full py-1.5 md:py-2 bg-indigo-50 text-indigo-600 font-semibold rounded-lg hover:bg-indigo-100 transition-colors text-xs md:text-sm"
                     >
                       Tindak Lanjuti
                     </button>
@@ -300,6 +412,7 @@ export default function MaintenancePage() {
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
               <tr>
+                {isSelectionMode && <th className="px-2 py-2 md:px-4 md:py-3 w-10"></th>}
                 <th className="px-2 py-2 md:px-4 md:py-3">Tanggal Lapor</th>
                 <th className="px-2 py-2 md:px-4 md:py-3">Item</th>
                 <th className="px-2 py-2 md:px-4 md:py-3">Masalah Awal</th>
@@ -314,7 +427,7 @@ export default function MaintenancePage() {
             <tbody className="divide-y divide-slate-50">
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-2 py-4 md:px-4 md:py-6 text-center text-slate-500 italic">
+                  <td colSpan={isSelectionMode ? 10 : 9} className="px-2 py-4 md:px-4 md:py-6 text-center text-slate-500 italic">
                     Belum ada data riwayat yang cocok.
                   </td>
                 </tr>
@@ -322,9 +435,22 @@ export default function MaintenancePage() {
                 currentItems.map((rec, idx) => (
                   <tr
                     key={idx}
-                    className="hover:bg-slate-50/50 transition-colors group animate-in slide-in-from-bottom-2 fade-in duration-300"
+                    className="hover:bg-slate-50/50 transition-colors group animate-in slide-in-from-bottom-2 fade-in duration-300 relative"
                     style={{ animationDelay: `${idx * 50}ms`, animationFillMode: 'backwards' }}
+                    onClick={() => isSelectionMode && toggleSelection(rec.id.toString())}
                   >
+                    {isSelectionMode && (
+                      <td className="px-2 py-2 md:px-4 md:py-3">
+                        <div className="flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(rec.id.toString())}
+                            onChange={() => { }} // Handled by row click
+                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </div>
+                      </td>
+                    )}
                     <td className="px-2 py-2 md:px-4 md:py-3 font-mono text-slate-600 whitespace-nowrap">{formatDate(rec.tanggalKerusakan)}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3 min-w-[120px]">
                       <div className="font-bold text-slate-800 line-clamp-1">{rec.itemName}</div>
@@ -367,7 +493,7 @@ export default function MaintenancePage() {
                       {(user?.role === "superadmin" || user?.role === "admin" || user?.role === "teknisi") && (
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => handleEditRecord(rec)}
+                            onClick={(e) => { e.stopPropagation(); handleEditRecord(rec); }}
                             className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
                             title="Edit Riwayat"
                           >
@@ -377,7 +503,7 @@ export default function MaintenancePage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => handleDeleteRecord({ item: items.find(i => i.id === rec.itemId), record: rec })}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteRecord({ item: items.find(i => i.id === rec.itemId), record: rec }); }}
                             className="text-slate-400 hover:text-red-600 transition-colors p-1"
                             title="Hapus Riwayat"
                           >
@@ -405,11 +531,22 @@ export default function MaintenancePage() {
             currentItems.map((rec, idx) => (
               <div
                 key={idx}
-                className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-all animate-in slide-in-from-bottom-2 fade-in duration-300"
+                className={`bg-white rounded-xl border shadow-sm p-4 transition-all animate-in slide-in-from-bottom-2 fade-in duration-300 ${isSelectionMode && selectedIds.includes(rec.id.toString()) ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/50' : 'border-slate-200 hover:shadow-md'}`}
                 style={{ animationDelay: `${idx * 50}ms`, animationFillMode: 'backwards' }}
+                onClick={() => isSelectionMode && toggleSelection(rec.id.toString())}
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3">
+                    {isSelectionMode && (
+                      <div className="flex items-center justify-center pr-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(rec.id.toString())}
+                          onChange={() => { }} // Handled by div click
+                          className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </div>
+                    )}
                     <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold text-lg">
                       {rec.itemName.charAt(0)}
                     </div>

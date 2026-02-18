@@ -7,9 +7,11 @@ import { useAuth } from "@/context/auth-context"
 interface ItemCardProps {
   item: any
   onDelete: () => void
+  selected?: boolean
+  onSelect?: (selected: boolean) => void
 }
 
-export default function ItemCard({ item, onDelete }: ItemCardProps) {
+export default function ItemCard({ item, onDelete, selected, onSelect }: ItemCardProps) {
   const { updateItem, user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -23,8 +25,18 @@ export default function ItemCard({ item, onDelete }: ItemCardProps) {
 
   return (
     <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow border border-border overflow-hidden">
-      <div className="p-4 md:p-6">
-        <div className="flex items-start justify-between mb-3 md:mb-4">
+      <div className="p-4 md:p-6 relative">
+        {onSelect && (
+          <div className="absolute top-4 right-4 z-10">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={(e) => onSelect(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            />
+          </div>
+        )}
+        <div className="flex items-start justify-between mb-3 md:mb-4 pr-6">
           <div>
             <h3 className="text-base md:text-lg font-bold text-foreground mb-1">{item.name}</h3>
             <p className="text-xs md:text-sm text-muted-foreground">{categoryIcons[item.category]}</p>
@@ -58,14 +70,14 @@ export default function ItemCard({ item, onDelete }: ItemCardProps) {
         <div className="flex gap-2">
           <Link
             href={`/dashboard/items/${item.id}`}
-            className="flex-1 text-center bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-1.5 md:py-2 rounded-lg hover:shadow-lg hover:shadow-indigo-200 transition-all font-semibold text-xs md:text-sm"
+            className="flex-1 text-center bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-2.5 md:py-2 rounded-lg hover:shadow-lg hover:shadow-indigo-200 transition-all font-semibold text-xs md:text-sm flex items-center justify-center"
           >
             Lihat Detail
           </Link>
           {(user?.role === "superadmin" || user?.role === "admin") && (
             <button
               onClick={() => setShowConfirm(true)}
-              className="px-3 md:px-4 py-1.5 md:py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-semibold text-xs md:text-sm"
+              className="px-3 md:px-4 py-2.5 md:py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-semibold text-xs md:text-sm"
             >
               Hapus
             </button>

@@ -1,4 +1,5 @@
 const { MaintenanceRecord, Item } = require('../models');
+const { createNotification } = require('../utils/notificationHelper');
 
 exports.addMaintenanceRecord = async (req, res) => {
     try {
@@ -18,6 +19,18 @@ exports.addMaintenanceRecord = async (req, res) => {
             item.statusMesin = req.body.statusMesin;
             await item.save();
         }
+
+        // Send Notification
+        const senderId = req.user ? req.user.id : (req.body.teknisi || 'unknown');
+        await createNotification(
+            'ALL',
+            senderId,
+            'warning',
+            `Maintenance baru dicatat for Item ID ${itemId}.`,
+            itemId,
+            'maintenance',
+            req.io
+        );
 
         res.status(201).json(record);
     } catch (err) {

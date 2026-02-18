@@ -1,4 +1,5 @@
 const { Item, MaintenanceRecord, LoanRecord } = require('../models');
+const { createNotification } = require('../utils/notificationHelper');
 
 exports.getAllItems = async (req, res) => {
     try {
@@ -26,14 +27,38 @@ exports.createItem = async (req, res) => {
         // If frontend sends mixed data, we might need to parse. For now, assume FormData sends 'photos' as files.
         // But if frontend also sends textual photo URLs (unlikely for create), we'd need to handle that.
 
+        // Sanitize numeric inputs
+        const parseCoord = (val) => {
+            const num = parseFloat(val);
+            return isNaN(num) ? null : num;
+        };
+
         const itemData = {
             ...req.body,
-            photos: photos
+            photos: photos,
+            quantity: req.body.quantity ? parseInt(req.body.quantity) : 1,
+            floor: req.body.floor ? parseInt(req.body.floor) : 1,
+            latitude: parseCoord(req.body.latitude),
+            longitude: parseCoord(req.body.longitude)
         };
 
         const item = await Item.create(itemData);
+
+        // Send Notification
+        const senderId = req.user ? req.user.id : (req.body.createdBy || null);
+        await createNotification(
+            'ALL',
+            senderId,
+            'success',
+            `Item ${item.name} baru saja ditambahkan.`,
+            item.id,
+            'item',
+            req.io
+        );
+
         res.status(201).json(item);
     } catch (err) {
+        console.error("Error creating item:", err);
         res.status(500).json({ message: err.message });
     }
 };
@@ -170,6 +195,20 @@ exports.updateItem = async (req, res) => {
             ]
         });
 
+
+
+        // Send Notification
+        const senderId = req.user ? req.user.id : 'unknown';
+        await createNotification(
+            'ALL',
+            senderId,
+            'info',
+            `Item ${updatedItem.name} telah diperbarui.`,
+            updatedItem.id,
+            'item',
+            req.io
+        );
+
         res.json(updatedItem);
     } catch (err) {
         console.error("Error updating item:", err);
@@ -184,6 +223,18 @@ exports.deleteItem = async (req, res) => {
         });
         if (deleted) {
             res.status(204).send();
+
+            // Send Notification
+            const senderId = req.user ? req.user.id : 'unknown';
+            await createNotification(
+                'ALL',
+                senderId,
+                'warning',
+                `Sebuah item telah dihapus.`,
+                req.params.id,
+                'item',
+                req.io
+            );
         } else {
             res.status(404).json({ message: 'Item not found' });
         }
@@ -234,6 +285,18 @@ exports.addMaintenanceRecord = async (req, res) => {
                 { model: LoanRecord, as: 'loanRecords' }
             ]
         });
+
+        // Send Notification
+        const senderId = req.user ? req.user.id : (req.body.teknisi || 'unknown');
+        await createNotification(
+            'ALL',
+            senderId,
+            'warning',
+            `Maintenance baru dicatat untuk ${item.name}.`,
+            itemId,
+            'maintenance',
+            req.io
+        );
 
         res.json(updatedItem);
     } catch (err) {

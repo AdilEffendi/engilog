@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { useAuth } from "@/context/auth-context"
 
 export default function LoginPage() {
@@ -44,11 +45,16 @@ export default function LoginPage() {
       <div className="w-full max-w-[500px] relative z-10 animate-in fade-in zoom-in-95 duration-1000 ease-out">
         <div className="bg-white rounded-2xl md:rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.05)] p-5 md:p-10 border border-slate-100/50 backdrop-blur-xl">
           <div className="mb-4 md:mb-10 text-center space-y-1.5 md:space-y-2">
-            <div className="inline-flex flex-col items-center justify-center mb-6 animate-in slide-in-from-top-8 duration-1000 delay-200 fill-mode-backwards">
-              <span className="text-4xl md:text-5xl font-black tracking-tighter text-[#1E293B] drop-shadow-sm">
-                Engi<span className="text-indigo-600">Log</span>
-              </span>
-              <div className="h-1 w-12 bg-indigo-600 rounded-full mt-1" />
+            <div className="flex justify-center mb-6 animate-in slide-in-from-top-8 duration-1000 delay-200 fill-mode-backwards">
+              <div className="relative w-44 h-20 md:w-64 md:h-28">
+                <Image
+                  src="/Engilog-logov2.png"
+                  alt="EngiLog Logo"
+                  fill
+                  className="object-contain"
+                  priority
+                />
+              </div>
             </div>
             <h1 className="text-lg md:text-2xl font-bold text-[#1E293B] tracking-tight animate-in slide-in-from-bottom-4 duration-1000 delay-300 fill-mode-backwards">
               Selamat Datang Kembali
@@ -59,29 +65,29 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3 md:space-y-6">
-            <div className="space-y-2.5 md:space-y-4 animate-in slide-in-from-bottom-8 duration-1000 delay-500 fill-mode-backwards">
-              <div className="space-y-1 md:space-y-2">
-                <label className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">Nama Pengguna</label>
+            <div className="space-y-4 md:space-y-4 animate-in slide-in-from-bottom-8 duration-1000 delay-500 fill-mode-backwards">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nama Pengguna</label>
                 <div className="relative group">
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full px-3.5 py-2.5 md:px-5 md:py-4 rounded-xl border border-slate-200 bg-slate-50/50 text-[#1E293B] placeholder:text-slate-400 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#1E293B]/10 focus:border-[#1E293B] focus:bg-white hover:bg-white hover:shadow-md hover:border-[#1E293B]/30 transition-all duration-300 transform motion-safe:hover:scale-[1.01] motion-safe:focus:scale-[1.01]"
+                    className="w-full px-4 py-3.5 md:px-5 md:py-4 rounded-xl border border-slate-200 bg-slate-50/50 text-[#1E293B] placeholder:text-slate-400 text-base focus:outline-none focus:ring-2 focus:ring-[#1E293B]/10 focus:border-[#1E293B] focus:bg-white hover:bg-white hover:shadow-md hover:border-[#1E293B]/30 transition-all duration-300 transform motion-safe:hover:scale-[1.01] motion-safe:focus:scale-[1.01]"
                     placeholder="Nama Pengguna"
                     required
                   />
                 </div>
               </div>
 
-              <div className="space-y-1 md:space-y-2">
-                <label className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">Kata Sandi</label>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Kata Sandi</label>
                 <div className="relative group">
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 md:px-5 md:py-4 rounded-xl border border-slate-200 bg-slate-50/50 text-[#1E293B] placeholder:text-slate-400 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#1E293B]/10 focus:border-[#1E293B] focus:bg-white hover:bg-white hover:shadow-md hover:border-[#1E293B]/30 transition-all duration-300 transform motion-safe:hover:scale-[1.01] motion-safe:focus:scale-[1.01]"
+                    className="w-full px-4 py-3.5 md:px-5 md:py-4 rounded-xl border border-slate-200 bg-slate-50/50 text-[#1E293B] placeholder:text-slate-400 text-base focus:outline-none focus:ring-2 focus:ring-[#1E293B]/10 focus:border-[#1E293B] focus:bg-white hover:bg-white hover:shadow-md hover:border-[#1E293B]/30 transition-all duration-300 transform motion-safe:hover:scale-[1.01] motion-safe:focus:scale-[1.01]"
                     placeholder="Kata Sandi"
                     required
                   />
@@ -113,7 +119,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-[#1E293B] text-white py-4 rounded-xl font-semibold hover:bg-[#0F172A] hover:shadow-lg hover:shadow-[#1E293B]/20 active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed mt-4 animate-in slide-in-from-bottom-8 duration-1000 delay-700 fill-mode-backwards"
+                className="w-full bg-[#1E293B] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#0F172A] hover:shadow-lg hover:shadow-[#1E293B]/20 active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed mt-6 animate-in slide-in-from-bottom-8 duration-1000 delay-700 fill-mode-backwards"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">

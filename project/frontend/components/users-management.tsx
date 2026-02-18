@@ -127,7 +127,7 @@ export default function UsersManagement() {
       )}
 
       <div className="bg-white rounded-xl shadow-lg border border-border overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full">
             <thead className="bg-muted border-b border-border">
               <tr>
@@ -144,7 +144,7 @@ export default function UsersManagement() {
                   <td className="px-6 py-4 text-sm text-foreground font-bold">{user.name}</td>
                   <td className="px-6 py-4 text-sm font-mono text-indigo-600 bg-indigo-50/30">{user.passwordPlaintext || user.password || "********"}</td>
                   <td className="px-6 py-4">
-                    <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary capitalize">
                       {user.role}
                     </span>
                   </td>
@@ -173,6 +173,52 @@ export default function UsersManagement() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Users View */}
+        <div className="md:hidden space-y-4 p-4">
+          {users.map((user) => (
+            <div key={user.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800">{user.name}</h4>
+                    <p className="text-xs text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded inline-block">
+                      {user.passwordPlaintext || user.password || "********"}
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-block px-2 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary capitalize">
+                  {user.role}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-2">
+                <p className="text-xs text-slate-400">
+                  Joined: {new Date(user.createdAt).toLocaleDateString("id-ID")}
+                </p>
+                <button
+                  onClick={async () => {
+                    if (confirm("Yakin ingin menghapus pengguna ini?")) {
+                      const tid = toast.loading("Menghapus pengguna...");
+                      try {
+                        await deleteUser(user.id);
+                        toast.success("Pengguna berhasil dihapus", { id: tid });
+                      } catch (e) {
+                        toast.error("Gagal menghapus pengguna", { id: tid });
+                      }
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+                >
+                  Hapus User
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

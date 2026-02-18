@@ -6,6 +6,9 @@ import { format } from "date-fns"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { toast } from "sonner"
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { generateLoanPDF } from "@/lib/pdf-utils"
+
 // Helper for consistent date formatting
 const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "-"
@@ -26,6 +29,11 @@ export default function PeminjamanPage() {
             router.push("/")
         }
     }, [user, isLoading, router])
+
+    // PDF Selection State
+    const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [isSelectionMode, setIsSelectionMode] = useState(false)
+    const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
 
     // State for Modals
     const [isLoanOpen, setIsLoanOpen] = useState(false)
@@ -115,6 +123,42 @@ export default function PeminjamanPage() {
         setDeleteConfirmation(prev => ({ ...prev, isOpen: false }))
     }
 
+    // Export Logic
+    const handleExportPDF = (type: 'all' | 'selected' | 'mode') => {
+        if (type === 'mode') {
+            setIsSelectionMode(true);
+            setIsExportDialogOpen(false);
+            toast.info("Mode pemilihan aktif. Silakan pilih riwayat yang ingin dicetak.");
+            return;
+        }
+
+        const itemsToExport = type === 'all'
+            ? filteredHistory
+            : filteredHistory.filter(item => selectedIds.includes(item.id.toString()));
+
+        if (itemsToExport.length === 0) {
+            toast.error("Tidak ada data untuk diekspor");
+            return;
+        }
+
+        generateLoanPDF(itemsToExport);
+        setIsExportDialogOpen(false);
+        setIsSelectionMode(false);
+        setSelectedIds([]);
+        toast.success("Laporan PDF berhasil dibuat");
+    }
+
+    const cancelSelection = () => {
+        setIsSelectionMode(false);
+        setSelectedIds([]);
+    }
+
+    const toggleSelection = (id: string) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        )
+    }
+
     return (
         <>
             <div className="max-w-7xl mx-auto space-y-8 pb-12 animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out">
@@ -125,17 +169,85 @@ export default function PeminjamanPage() {
                         <p className="text-slate-500 mt-1">Kelola peminjaman dan pengembalian item perusahaan.</p>
                     </div>
                     {(user?.role === "superadmin" || user?.role === "admin" || user?.role === "teknisi") && (
-                        <button
-                            onClick={() => setIsLoanOpen(true)}
-                            className="group flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-indigo-200 transition-all font-semibold active:scale-95"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                            </svg>
-                            Pinjam Item Baru
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <button
+                                        className="flex items-center justify-center gap-2 bg-slate-800 text-white px-5 py-2.5 rounded-xl hover:bg-slate-900 transition-all font-semibold active:scale-95 shadow-md"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.03 9.11a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 00-1.06-1.06l-2.22 2.22v-4.59z" clipRule="evenodd" />
+                                        </svg>
+                                        Cetak PDF
+                                    </button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md rounded-3xl">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-xl font-black text-slate-800">Opsi Cetak PDF</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="grid grid-cols-1 gap-4 mt-4">
+                                        <button
+                                            onClick={() => handleExportPDF('all')}
+                                            className="flex flex-col items-start p-4 border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 rounded-2xl transition-all group"
+                                        >
+                                            <span className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Cetak Semua Riwayat</span>
+                                            <span className="text-xs text-slate-500 mt-1 text-left">Ekspor seluruh data riwayat yang ditampilkan ({filteredHistory.length} data).</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportPDF('mode')}
+                                            className="flex flex-col items-start p-4 border-2 border-slate-100 hover:border-violet-500 hover:bg-violet-50/50 rounded-2xl transition-all group"
+                                        >
+                                            <span className="font-bold text-slate-800 group-hover:text-violet-600 transition-colors">Pilih Secara Manual</span>
+                                            <span className="text-xs text-slate-500 mt-1 text-left">Aktifkan kotak centang untuk memilih riwayat satu per satu.</span>
+                                        </button>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+
+                            <button
+                                onClick={() => setIsLoanOpen(true)}
+                                className="group flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-indigo-200 transition-all font-semibold active:scale-95"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                                </svg>
+                                Pinjam Item Baru
+                            </button>
+                        </div>
                     )}
                 </div>
+
+                {/* Floating Selection Bar */}
+                {isSelectionMode && (
+                    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-2xl animate-in slide-in-from-bottom-8 duration-300">
+                        <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3 pl-2">
+                                <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/30">
+                                    {selectedIds.length}
+                                </div>
+                                <div>
+                                    <p className="text-white font-bold text-sm">Item Terpilih</p>
+                                    <p className="text-slate-400 text-[10px] uppercase tracking-wider">Laporan Siap Dicetak</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={cancelSelection}
+                                    className="px-4 py-2 text-slate-300 hover:text-white text-sm font-semibold transition-colors"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={() => handleExportPDF('selected')}
+                                    disabled={selectedIds.length === 0}
+                                    className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                                >
+                                    Cetak PDF ({selectedIds.length})
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Active Loans Section */}
                 <div>
@@ -161,8 +273,25 @@ export default function PeminjamanPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {activeLoans.map(item => {
                                 const lastLoan = item.loanRecords?.[item.loanRecords.length - 1]
+                                const recordId = `${item.id}-${(item.loanRecords?.length || 0) - 1}`
+                                const isSelected = selectedIds.includes(recordId)
+
                                 return (
-                                    <div key={item.id} className="bg-white border border-blue-100 shadow-xl shadow-blue-50 rounded-2xl p-6 relative overflow-hidden group">
+                                    <div
+                                        key={item.id}
+                                        className={`bg-white border rounded-2xl p-6 relative overflow-hidden group transition-all duration-200 ${isSelectionMode ? 'cursor-pointer' : ''} ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/10' : 'border-blue-100 shadow-xl shadow-blue-50'}`}
+                                        onClick={() => isSelectionMode && toggleSelection(recordId)}
+                                    >
+                                        {isSelectionMode && (
+                                            <div className="absolute top-4 left-4 z-10">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => { }}
+                                                    className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shadow-sm"
+                                                />
+                                            </div>
+                                        )}
                                         <div className="absolute top-0 right-0 p-4">
                                             <span className="px-3 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-600">
                                                 Dipinjam
@@ -236,6 +365,7 @@ export default function PeminjamanPage() {
                         <table className="w-full text-sm text-left">
                             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
                                 <tr>
+                                    {isSelectionMode && <th className="px-6 py-4 w-10"></th>}
                                     <th className="px-6 py-4">Item</th>
                                     <th className="px-6 py-4">Peminjam</th>
                                     <th className="px-6 py-4">Departemen</th>
@@ -249,13 +379,29 @@ export default function PeminjamanPage() {
                             <tbody className="divide-y divide-slate-50">
                                 {filteredHistory.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-8 text-center text-slate-500 italic">
+                                        <td colSpan={isSelectionMode ? 9 : 8} className="px-6 py-8 text-center text-slate-500 italic">
                                             Belum ada data riwayat peminjaman.
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredHistory.map((rec) => (
-                                        <tr key={rec.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <tr
+                                            key={rec.id}
+                                            className={`hover:bg-slate-50/50 transition-colors group ${isSelectionMode ? 'cursor-pointer' : ''}`}
+                                            onClick={() => isSelectionMode && toggleSelection(rec.id)}
+                                        >
+                                            {isSelectionMode && (
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center justify-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedIds.includes(rec.id)}
+                                                            onChange={() => { }}
+                                                            className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shadow-sm"
+                                                        />
+                                                    </div>
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-slate-800">{rec.itemName}</div>
                                                 <div className="text-xs text-slate-400">{rec.assetId}</div>
@@ -280,7 +426,7 @@ export default function PeminjamanPage() {
                                             <td className="px-6 py-4 text-center">
                                                 {(user?.role === "superadmin" || user?.role === "admin" || user?.role === "teknisi") && (
                                                     <button
-                                                        onClick={() => handleDeleteRecord(rec.id, rec.itemId, rec.originalIdx)}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteRecord(rec.id, rec.itemId, rec.originalIdx) }}
                                                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                         title="Hapus Riwayat"
                                                     >
@@ -296,50 +442,143 @@ export default function PeminjamanPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Mobile History Card View */}
+                    <div className="md:hidden space-y-4 p-4">
+                        {filteredHistory.length === 0 ? (
+                            <div className="text-center text-slate-500 italic py-8 border-t border-slate-100">
+                                Belum ada data riwayat peminjaman.
+                            </div>
+                        ) : (
+                            filteredHistory.map((rec) => (
+                                <div
+                                    key={rec.id}
+                                    className={`bg-white rounded-xl border shadow-sm p-3 transition-all animate-in slide-in-from-bottom-2 fade-in duration-300 ${isSelectionMode ? 'cursor-pointer' : ''} ${selectedIds.includes(rec.id) ? 'border-indigo-500 ring-1 ring-indigo-500 bg-indigo-50/10' : 'border-slate-200'}`}
+                                    onClick={() => isSelectionMode && toggleSelection(rec.id)}
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
+                                            {isSelectionMode && (
+                                                <div className="flex items-center justify-center pr-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.includes(rec.id)}
+                                                        onChange={() => { }}
+                                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm">
+                                                {rec.itemName.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-sm text-slate-800 line-clamp-1">{rec.itemName}</h4>
+                                                <p className="text-[10px] text-slate-500 font-mono">{rec.assetId}</p>
+                                            </div>
+                                        </div>
+                                        {rec.condition ? (
+                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${rec.condition === "Normal" ? "bg-emerald-100 text-emerald-700" :
+                                                rec.condition === "Rusak" ? "bg-red-100 text-red-700" :
+                                                    "bg-slate-100 text-slate-700"
+                                                }`}>
+                                                {rec.condition}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-medium text-blue-500 italic bg-blue-50 px-1.5 py-0.5 rounded-md">Dipinjam</span>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5 mb-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Peminjam</p>
+                                            <div className="flex items-baseline justify-between">
+                                                <p className="text-xs text-slate-700 font-medium truncate">{rec.borrowerName}</p>
+                                                <p className="text-[10px] text-slate-500 truncate max-w-[40%]">{rec.department}</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100/50">
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Pinjam</p>
+                                                <p className="text-[10px] text-slate-700 font-mono">{formatDate(rec.borrowDate)}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Kembali</p>
+                                                <p className="text-[10px] text-slate-700 font-mono">{formatDate(rec.returnDate)}</p>
+                                            </div>
+                                        </div>
+                                        {rec.returnedBy && (
+                                            <div className="pt-1 border-t border-slate-100/50">
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Diterima:</p>
+                                                <p className="text-[10px] text-slate-700">{rec.returnedBy}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {(user?.role === "superadmin" || user?.role === "admin" || user?.role === "teknisi") && (
+                                        <div className="flex justify-end">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteRecord(rec.id, rec.itemId, rec.originalIdx) }}
+                                                className="px-2 py-1 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-[10px] font-semibold flex items-center gap-1"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                                                    <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                                                </svg>
+                                                Hapus
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Loan Modal */}
-            {isLoanOpen && (
-                <LoanModal
-                    items={items.filter(i => i.statusMesin !== "Dipinjam" && i.statusMesin !== "Rusak")} // Only available items
-                    onClose={() => setIsLoanOpen(false)}
-                    onSubmit={async (data) => {
-                        const item = items.find(i => i.id === data.itemId)
-                        if (item) {
-                            const newRecords = [...(item.loanRecords || []), data.record]
-                            await updateItem(item.id, {
-                                statusMesin: "Dipinjam",
-                                loanRecords: newRecords
-                            })
-                        }
-                        setIsLoanOpen(false)
-                    }}
-                />
-            )}
+            {
+                isLoanOpen && (
+                    <LoanModal
+                        items={items.filter(i => i.statusMesin !== "Dipinjam" && i.statusMesin !== "Rusak")} // Only available items
+                        onClose={() => setIsLoanOpen(false)}
+                        onSubmit={async (data) => {
+                            const item = items.find(i => i.id === data.itemId)
+                            if (item) {
+                                const newRecords = [...(item.loanRecords || []), data.record]
+                                await updateItem(item.id, {
+                                    statusMesin: "Dipinjam",
+                                    loanRecords: newRecords
+                                })
+                            }
+                            setIsLoanOpen(false)
+                        }}
+                    />
+                )
+            }
 
             {/* Return Modal */}
-            {isReturnOpen && selectedItemForReturn && (
-                <ReturnModal
-                    item={selectedItemForReturn}
-                    onClose={() => setIsReturnOpen(false)}
-                    onSubmit={async (data) => {
-                        if (selectedItemForReturn.loanRecords && selectedItemForReturn.loanRecords.length > 0) {
-                            const newRecords = [...selectedItemForReturn.loanRecords]
-                            const lastIdx = newRecords.length - 1
-                            newRecords[lastIdx] = {
-                                ...newRecords[lastIdx],
-                                ...data
+            {
+                isReturnOpen && selectedItemForReturn && (
+                    <ReturnModal
+                        item={selectedItemForReturn}
+                        onClose={() => setIsReturnOpen(false)}
+                        onSubmit={async (data) => {
+                            if (selectedItemForReturn.loanRecords && selectedItemForReturn.loanRecords.length > 0) {
+                                const newRecords = [...selectedItemForReturn.loanRecords]
+                                const lastIdx = newRecords.length - 1
+                                newRecords[lastIdx] = {
+                                    ...newRecords[lastIdx],
+                                    ...data
+                                }
+                                await updateItem(selectedItemForReturn.id, {
+                                    statusMesin: data.condition,
+                                    loanRecords: newRecords
+                                })
                             }
-                            await updateItem(selectedItemForReturn.id, {
-                                statusMesin: data.condition,
-                                loanRecords: newRecords
-                            })
-                        }
-                        setIsReturnOpen(false)
-                    }}
-                />
-            )}
+                            setIsReturnOpen(false)
+                        }}
+                    />
+                )
+            }
             <ConfirmationModal
                 isOpen={deleteConfirmation.isOpen}
                 onClose={() => setDeleteConfirmation(prev => ({ ...prev, isOpen: false }))}

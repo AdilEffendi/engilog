@@ -7,6 +7,8 @@ import "maplibre-gl/dist/maplibre-gl.css"
 import type { MapRef } from "react-map-gl/maplibre"
 import maplibregl from "maplibre-gl"
 import type { Feature, LineString } from "geojson"
+import { toast } from "sonner"
+import { getFloorLabel, FLOOR_MAPPING } from "@/lib/floor-utils"
 
 export default function DashboardItemsMap() {
 
@@ -173,7 +175,6 @@ export default function DashboardItemsMap() {
       console.log("Waiting for location to start navigation...")
       return
     }
-
     // Fly to fit bounds
     if (mapRef.current) {
       const bounds = new maplibregl.LngLatBounds()
@@ -188,6 +189,47 @@ export default function DashboardItemsMap() {
         essential: true
       })
     }
+  }
+
+  // Handle "Locate Me" click
+  const handleLocateMe = () => {
+    if (!("geolocation" in navigator)) {
+      toast.error("Browser Anda tidak mendukung geolokasi.")
+      return
+    }
+
+    toast.info("Mencari lokasi Anda...")
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords
+        setUserLocation({ lat: latitude, lng: longitude })
+
+        if (mapRef.current) {
+          mapRef.current.flyTo({
+            center: [longitude, latitude],
+            zoom: 17,
+            pitch: 0,
+            bearing: 0,
+            duration: 2000,
+            essential: true
+          })
+        }
+        toast.success("Lokasi ditemukan!")
+      },
+      (error) => {
+        console.error("Geolocation error:", error)
+        let message = "Gagal mengambil lokasi."
+        if (error.code === 1) message = "Akses lokasi ditolak. Silakan aktifkan izin lokasi di browser Anda."
+        if (error.code === 2) message = "Lokasi tidak tersedia (matikan VPN atau coba di luar ruangan)."
+        if (error.code === 3) message = "Waktu pencarian lokasi habis."
+
+        toast.error(message, {
+          description: "Jika Anda menggunakan HP, pastikan website ini diakses melalui HTTPS."
+        })
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
   }
 
   // Handle Item Selection (from Search or Click)
@@ -288,6 +330,20 @@ export default function DashboardItemsMap() {
           <NavigationControl position="top-right" />
           <FullscreenControl position="top-right" />
 
+          {/* Custom Locate Me Button - Top Right below controls */}
+          <div className="absolute top-28 right-2.5 z-10 flex flex-col gap-2">
+            <button
+              onClick={handleLocateMe}
+              className="w-[29px] h-[29px] bg-white hover:bg-slate-50 border border-slate-200 rounded flex items-center justify-center shadow-sm transition-colors group"
+              title="Cari Lokasi Saya"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-600 group-hover:text-indigo-600 transition-colors">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v.75a.75.75 0 001.5 0V5zM5 9.25a.75.75 0 000 1.5h.75a.75.75 0 000-1.5H5zM14.25 10a.75.75 0 01.75-.75h.75a.75.75 0 010 1.5h-.75a.75.75 0 01-.75-.75zM10 14.25a.75.75 0 00-.75.75v.75a.75.75 0 001.5 0v-.75a.75.75 0 00-.75-.75z" clipRule="evenodd" />
+                <path d="M10 7a3 3 0 100 6 3 3 0 000-6z" />
+              </svg>
+            </button>
+          </div>
+
           {/* Route Source & Layer */}
           {routeData && (
             <Source id="route-source" type="geojson" data={routeData}>
@@ -321,9 +377,16 @@ export default function DashboardItemsMap() {
           {/* User Location Marker */}
           {userLocation && (
             <Marker longitude={userLocation.lng} latitude={userLocation.lat}>
-              <div className="relative">
-                <div className="absolute -inset-4 bg-blue-500/30 rounded-full animate-ping"></div>
-                <div className="relative w-4 h-4 bg-blue-500 border-2 border-white rounded-full shadow-md"></div>
+              <div className="relative group/user">
+                <div className="absolute -inset-4 bg-blue-500/20 rounded-full animate-ping"></div>
+                <div className="relative w-5 h-5 bg-blue-600 border-2 border-white rounded-full shadow-lg flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+                {/* Floating Label */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-blue-600 text-white text-[10px] font-bold rounded shadow-xl whitespace-nowrap opacity-0 group-hover/user:opacity-100 md:opacity-100 transition-opacity pointer-events-none">
+                  Lokasi Anda
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-blue-600"></div>
+                </div>
               </div>
             </Marker>
           )}
@@ -384,45 +447,47 @@ export default function DashboardItemsMap() {
           ))}
 
           {/* Animated Floor Switcher Control - Bottom Left */}
-          <div className="absolute bottom-6 left-6 z-20 flex flex-col-reverse items-start gap-2">
+          {/* Floor Switcher Control - Vertical Bottom Left */}
+          <div className="absolute bottom-3 left-3 z-20 flex flex-col-reverse items-start gap-1">
             {/* Main Toggle Button */}
             <button
               onClick={() => setIsFloorMenuOpen(!isFloorMenuOpen)}
-              className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-lg border-2 z-30
+              className={`w-8 h-8 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-lg border-2 z-30
                 ${isFloorMenuOpen
                   ? "bg-slate-800 border-slate-700 text-white rotate-180"
                   : "bg-indigo-600 border-indigo-500 text-white hover:scale-110"
                 }`}
             >
               {isFloorMenuOpen ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 md:w-6 md:h-6">
                   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                 </svg>
               ) : (
                 <span className="flex flex-col items-center leading-none">
-                  <span className="text-[10px] opacity-80 mb-0.5">LV</span>
-                  <span>{activeFloor}</span>
+                  <span className="text-[6px] md:text-[9px] opacity-80 mb-px">Lantai</span>
+                  <span className="text-[8px] md:text-xs">{getFloorLabel(activeFloor)}</span>
                 </span>
               )}
             </button>
 
-            {/* Expandable Menu */}
+            {/* Expandable Menu - Vertical Stack */}
             {isFloorMenuOpen && (
-              <div className="flex flex-col-reverse gap-2 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                {[1, 2, 3, 4, 5].map((fl) => (
+              <div className="flex flex-col-reverse gap-1 animate-in slide-in-from-bottom-2 fade-in duration-300 mb-0.5">
+                {Object.entries(FLOOR_MAPPING).map(([val, label]) => (
                   <button
-                    key={fl}
+                    key={val}
                     onClick={() => {
-                      setActiveFloor(fl)
+                      setActiveFloor(parseInt(val))
                       setIsFloorMenuOpen(false)
                     }}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition-all shadow-md border-2 hover:scale-110
-                      ${activeFloor === fl
+                    className={`w-7 h-7 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-[8px] md:text-[10px] transition-all shadow-md border-2 hover:scale-110
+                      ${activeFloor === parseInt(val)
                         ? "bg-indigo-600 border-indigo-400 text-white shadow-indigo-200/50"
                         : "bg-white/90 backdrop-blur-sm border-white text-slate-600 hover:bg-white"
                       }`}
+                    title={`Lantai ${label}`}
                   >
-                    F{fl}
+                    {label}
                   </button>
                 ))}
               </div>

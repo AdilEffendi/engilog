@@ -6,6 +6,16 @@ import { useRouter } from "next/navigation"
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent } from "@/components/ui/alert-dialog"
 import ItemForm from "./item-form"
 import ItemCard from "./item-card"
+import { generateItemsPDF } from "@/lib/pdf-utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { toast } from "sonner"
 
 export default function ItemsGrid() {
   // State
@@ -18,6 +28,9 @@ export default function ItemsGrid() {
   const [filter, setFilter] = useState("semua")
   const [search, setSearch] = useState("")
   const [viewType, setViewType] = useState<'card' | 'table'>('card')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
 
   // Filter status berdasarkan statusMesin
   let filteredItems = filter === "semua"
@@ -36,6 +49,49 @@ export default function ItemsGrid() {
     const timeout = setTimeout(() => setFade(true), 150)
     return () => clearTimeout(timeout)
   }, [viewType, filter, search])
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredItems.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredItems.map(item => item.id))
+    }
+  }
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const handleExportPDF = (type: 'all' | 'selected' | 'mode') => {
+    if (type === 'mode') {
+      setIsSelectionMode(true);
+      setIsExportDialogOpen(false);
+      toast.info("Mode pemilihan aktif. Silakan pilih item yang ingin dicetak.");
+      return;
+    }
+
+    const itemsToExport = type === 'all'
+      ? filteredItems
+      : items.filter(item => selectedIds.includes(item.id));
+
+    if (itemsToExport.length === 0) {
+      toast.error("Tidak ada item untuk diekspor");
+      return;
+    }
+
+    generateItemsPDF(itemsToExport);
+    setIsExportDialogOpen(false);
+    setIsSelectionMode(false);
+    setSelectedIds([]);
+    toast.success("Laporan PDF berhasil dibuat");
+  }
+
+  const cancelSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedIds([]);
+  }
 
   return (
     <div className="space-y-6 md:space-y-8 relative min-h-screen pb-20">
@@ -104,7 +160,76 @@ export default function ItemsGrid() {
               </svg>
             </button>
           </div>
+
+          {/* Export PDF Button */}
+          <div className="order-3 xl:order-3 w-full md:w-auto">
+            <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+              <DialogTrigger asChild>
+                <button
+                  className="flex items-center justify-center gap-2 bg-slate-800 text-white px-5 py-2.5 rounded-xl hover:bg-slate-900 transition-all font-semibold active:scale-95 w-full"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.03 9.11a.75.75 0 10-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 00-1.06-1.06l-2.22 2.22v-4.59z" clipRule="evenodd" />
+                  </svg>
+                  Cetak PDF
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md rounded-3xl">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black text-slate-800">Opsi Cetak PDF</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 gap-4 mt-4">
+                  <button
+                    onClick={() => handleExportPDF('all')}
+                    className="flex flex-col items-start p-4 border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50/50 rounded-2xl transition-all group"
+                  >
+                    <span className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Cetak Semua Item</span>
+                    <span className="text-xs text-slate-500 mt-1 text-left">Ekspor seluruh item ({filteredItems.length} item).</span>
+                  </button>
+                  <button
+                    onClick={() => handleExportPDF('mode')}
+                    className="flex flex-col items-start p-4 border-2 border-slate-100 hover:border-violet-500 hover:bg-violet-50/50 rounded-2xl transition-all group"
+                  >
+                    <span className="font-bold text-slate-800 group-hover:text-violet-600 transition-colors">Pilih Item Secara Manual</span>
+                    <span className="text-xs text-slate-500 mt-1 text-left">Aktifkan kotak centang untuk memilih item satu per satu.</span>
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
+
+        {/* Floating Selection Bar */}
+        {isSelectionMode && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-2xl animate-in slide-in-from-bottom-8 duration-300">
+            <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 pl-2">
+                <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/30">
+                  {selectedIds.length}
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">Item Terpilih</p>
+                  <p className="text-slate-400 text-[10px] uppercase tracking-wider">Laporan Siap Dicetak</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={cancelSelection}
+                  className="px-4 py-2 text-slate-300 hover:text-white text-sm font-semibold transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={() => handleExportPDF('selected')}
+                  disabled={selectedIds.length === 0}
+                  className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-indigo-500/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                >
+                  Cetak PDF ({selectedIds.length})
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filters - Wrapped on mobile for full visibility without scroll */}
         <div className="flex flex-col md:flex-row gap-4 w-full items-center justify-between">
@@ -135,7 +260,7 @@ export default function ItemsGrid() {
               <button
                 key={btn.value}
                 onClick={() => setFilter(btn.value)}
-                className={`px-3 py-2 md:px-4 md:py-2 rounded-xl text-xs font-semibold md:whitespace-nowrap transition-all border text-center ${filter === btn.value
+                className={`px-3 py-3 md:px-4 md:py-2 rounded-xl text-xs font-semibold md:whitespace-nowrap transition-all border text-center ${filter === btn.value
                   ? btn.value === "Normal" ? "bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm" :
                     btn.value === "Maintenance" ? "bg-orange-50 text-orange-600 border-orange-200 shadow-sm" :
                       btn.value === "Rusak" ? "bg-red-50 text-red-600 border-red-200 shadow-sm" :
@@ -180,7 +305,12 @@ export default function ItemsGrid() {
                 }}
                 className="transition-all duration-700 ease-out hover:-translate-y-2 hover:shadow-xl rounded-xl"
               >
-                <ItemCard item={item} onDelete={() => deleteItem(item.id)} />
+                <ItemCard
+                  item={item}
+                  onDelete={() => deleteItem(item.id)}
+                  selected={selectedIds.includes(item.id)}
+                  onSelect={isSelectionMode ? (selected) => toggleSelectItem(item.id) : undefined}
+                />
               </div>
             ))}
           </div>
@@ -190,6 +320,15 @@ export default function ItemsGrid() {
               <table className="min-w-full">
                 <thead className="bg-slate-50/50 border-b border-slate-100">
                   <tr>
+                    {isSelectionMode && (
+                      <th className="px-3 py-3 text-left w-10">
+                        <Checkbox
+                          checked={selectedIds.length === filteredItems.length && filteredItems.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                          className="border-slate-300 data-[state=checked]:bg-indigo-600"
+                        />
+                      </th>
+                    )}
                     <th className="px-3 py-3 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Nama & ID</th>
                     <th className="px-3 py-3 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Kategori</th>
                     <th className="px-3 py-3 text-left text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Status</th>
@@ -202,12 +341,26 @@ export default function ItemsGrid() {
                   {filteredItems.map((item, idx) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-purple-50/30 transition-colors group cursor-default"
+                      className={`transition-colors group cursor-default ${isSelectionMode ? (selectedIds.includes(item.id) ? 'bg-indigo-50/50' : 'hover:bg-slate-50') : 'hover:bg-purple-50/30'}`}
                       style={{
                         animation: `fadeInUp 0.5s ease-out forwards ${idx * 0.05}s`,
                         opacity: 0 // Start invisible for animation
                       }}
+                      onClick={() => {
+                        if (isSelectionMode) {
+                          toggleSelectItem(item.id)
+                        }
+                      }}
                     >
+                      {isSelectionMode && (
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <Checkbox
+                            checked={selectedIds.includes(item.id)}
+                            onCheckedChange={() => toggleSelectItem(item.id)}
+                            className="border-slate-300 data-[state=checked]:bg-indigo-600"
+                          />
+                        </td>
+                      )}
                       <td className="px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shadow-sm group-hover:scale-110 transition-transform

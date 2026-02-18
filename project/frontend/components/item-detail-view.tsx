@@ -9,6 +9,8 @@ import { ImageGallery, PhotoModal, getImageUrl } from "@/components/image-galler
 import { EditMaintenanceModal } from "@/components/maintenance/edit-maintenance-modal"
 import { MaintenanceHistoryModal } from "@/components/maintenance/maintenance-history-modal"
 import { LoanHistoryModal } from "./loan-history-modal"
+import { generateItemDetailPDF } from "@/lib/pdf-utils"
+import { getFloorLabel } from "@/lib/floor-utils"
 
 interface ItemDetailViewProps {
   item: any
@@ -153,6 +155,20 @@ export default function ItemDetailView({ item }: ItemDetailViewProps) {
           <span className={`px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold ring-1 ring-inset ${getStatusColor(item.statusMesin)}`}>
             {item.statusMesin || "Unknown"}
           </span>
+
+          <button
+            onClick={() => generateItemDetailPDF(item)}
+            className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all font-semibold active:scale-95 text-xs md:text-sm shadow-sm"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 md:w-4 md:h-4">
+              <path fillRule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0113.25 8H6.75A1.75 1.75 0 015 6.25v-3.5zm1.75-.25a.25.25 0 00-.25.25v3.5c0 .138.112.25.25.25h6.5a.25.25 0 00.25-.25v-3.5a.25.25 0 00-.25-.25h-6.5z" clipRule="evenodd" />
+              <path d="M17 7.25A.75.75 0 0117.75 8v2.25c0 .966-.784 1.75-1.75 1.75h-.5a.75.75 0 010-1.5h.5a.25.25 0 00.25-.25V8a.75.75 0 01.75-.75zM3 7.25A.75.75 0 002.25 8v2.25c0 .966.784 1.75 1.75 1.75h.5a.75.75 0 000-1.5h-.5a.25.25 0 01-.25-.25V8A.75.75 0 003 7.25z" />
+              <path fillRule="evenodd" d="M13 12.25a.75.75 0 01.75.75v2.25a1.75 1.75 0 01-1.75 1.75h-4a1.75 1.75 0 01-1.75-1.75V13a.75.75 0 01.75-.75h6zm-5.25 2.5a.25.25 0 01.25-.25h4a.25.25 0 01.25.25v2.25a.25.25 0 01-.25.25h-4a.25.25 0 01-.25-.25V14.75z" clipRule="evenodd" />
+            </svg>
+            <span className="hidden md:inline">Cetak Detail</span>
+            <span className="md:hidden">Cetak</span>
+          </button>
+
           {(user?.role === "superadmin" || user?.role === "admin") && (
             <button
               onClick={() => setIsEditing(true)}
@@ -212,7 +228,7 @@ export default function ItemDetailView({ item }: ItemDetailViewProps) {
                     { l: "Model / Tipe", v: item.model },
                     { l: "Serial Number", v: item.serialNumber, mono: true },
                     { l: "Asset Tag", v: item.assetTag, mono: true },
-                    { l: "Lokasi Lantai", v: `Lantai ${item.floor || 1}` },
+                    { l: "Lokasi Lantai", v: `Lantai ${getFloorLabel(item.floor)}` },
                   ].map((row, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-3 md:px-6 md:py-3.5 text-slate-500 font-medium w-1/3">{row.l}</td>
@@ -349,7 +365,7 @@ export default function ItemDetailView({ item }: ItemDetailViewProps) {
                               {validPhotos.slice(0, 5).map((src: any, pIdx: number) => (
                                 <div key={pIdx} className="flex-shrink-0 snap-center w-16 h-16 md:w-12 md:h-12 rounded-lg overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all relative group">
                                   <img
-                                    src={src.startsWith('http') || src.startsWith('data:') ? src : `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:5000${src.startsWith('/') ? '' : '/'}${src}`}
+                                    src={src.startsWith('http') || src.startsWith('data:') ? src : `${typeof window !== 'undefined' ? (window.location.hostname === 'localhost' ? "http://localhost:5000" : "https://api.engilog.site") : "http://localhost:5000"}${src.startsWith('/') ? '' : '/'}${src}`}
                                     alt="Bukti"
                                     className="w-full h-full object-cover"
                                     onClick={(e) => {
@@ -448,8 +464,8 @@ export default function ItemDetailView({ item }: ItemDetailViewProps) {
 
       {historyZoomPhoto && (
         <PhotoModal
-          src={historyZoomPhoto.startsWith('http') || historyZoomPhoto.startsWith('data:') ? historyZoomPhoto : getImageUrl(historyZoomPhoto, typeof window !== 'undefined' ? `http://${window.location.hostname}:5000` : "http://localhost:5000")}
-          images={historyZoomList.map(p => p.startsWith('http') || p.startsWith('data:') ? p : getImageUrl(p, typeof window !== 'undefined' ? `http://${window.location.hostname}:5000` : "http://localhost:5000"))}
+          src={historyZoomPhoto.startsWith('http') || historyZoomPhoto.startsWith('data:') ? historyZoomPhoto : getImageUrl(historyZoomPhoto, typeof window !== 'undefined' ? (window.location.hostname === 'localhost' ? "http://localhost:5000" : "https://api.engilog.site") : "http://localhost:5000")}
+          images={historyZoomList.map(p => p.startsWith('http') || p.startsWith('data:') ? p : getImageUrl(p, typeof window !== 'undefined' ? (window.location.hostname === 'localhost' ? "http://localhost:5000" : "https://api.engilog.site") : "http://localhost:5000"))}
           onClose={() => setHistoryZoomPhoto(null)}
         />
       )}

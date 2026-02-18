@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useAuth } from "@/context/auth-context"
 import { toast } from "sonner"
+import { FLOOR_OPTIONS } from "@/lib/floor-utils"
 
 interface ItemFormProps {
   onClose: () => void
@@ -55,27 +56,52 @@ export default function ItemForm({ onClose, editingItem, onUpdate }: ItemFormPro
   const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([])
 
   // Handler upload foto
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
 
-    // Store actual files for upload
-    const fileArray = Array.from(files);
-    setNewPhotoFiles(prev => [...prev, ...fileArray]);
+    const fileArray = Array.from(files)
 
-    // Create previews
-    fileArray.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          setFormData((prev) => ({
-            ...prev,
-            photos: [...prev.photos, ev.target!.result as string],
-          }))
+    // We add to newPhotoFiles state
+    setNewPhotoFiles((prev) => [...prev, ...fileArray])
+
+    // Create previews sequentially to maintain order mapping with newPhotoFiles
+    const newPreviews: string[] = []
+    for (const file of fileArray) {
+      const preview = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = (ev) => resolve(ev.target?.result as string)
+        reader.readAsDataURL(file)
+      })
+      newPreviews.push(preview)
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      photos: [...prev.photos, ...newPreviews],
+    }))
+  }
+
+  const handleRemovePhoto = (index: number) => {
+    const photoToRemove = formData.photos[index]
+    const isNewPhoto = photoToRemove.startsWith("data:") || photoToRemove.startsWith("blob:")
+
+    if (isNewPhoto) {
+      // Find the index in newPhotoFiles
+      // We count how many new photos were added before this index
+      let newPhotoIdx = 0
+      for (let i = 0; i < index; i++) {
+        if (formData.photos[i].startsWith("data:") || formData.photos[i].startsWith("blob:")) {
+          newPhotoIdx++
         }
       }
-      reader.readAsDataURL(file)
-    })
+      setNewPhotoFiles((prev) => prev.filter((_, i) => i !== newPhotoIdx))
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      photos: prev.photos.filter((_, i) => i !== index),
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,9 +126,11 @@ export default function ItemForm({ onClose, editingItem, onUpdate }: ItemFormPro
     data.append('quantity', formData.quantity.toString());
 
     // Handle Existing Photos
-    const existingPhotos = formData.photos.filter((p: string) => !p.startsWith('data:') && !p.startsWith('blob:'));
-    if (existingPhotos.length > 0) {
-      data.append('existingPhotos', JSON.stringify(existingPhotos));
+    const existingPhotos = formData.photos.filter((p: string) => !p.startsWith("data:") && !p.startsWith("blob:"))
+    if (editingItem) {
+      data.append("existingPhotos", JSON.stringify(existingPhotos))
+    } else if (existingPhotos.length > 0) {
+      data.append("existingPhotos", JSON.stringify(existingPhotos))
     }
 
     // Handle New Photo Files
@@ -259,14 +287,33 @@ export default function ItemForm({ onClose, editingItem, onUpdate }: ItemFormPro
             disabled={isSubmitting}
           />
           {formData.photos.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-3 mt-4">
               {formData.photos.map((photo: string, idx: number) => (
-                <img
-                  key={idx}
-                  src={photo}
-                  alt={`Foto ${idx + 1}`}
-                  className="w-20 h-20 object-cover rounded-lg border border-border"
-                />
+                <div key={idx} className="relative group w-24 h-24">
+                  <img
+                    src={photo}
+                    alt={`Foto ${idx + 1}`}
+                    className="w-full h-full object-cover rounded-xl border border-border shadow-sm group-hover:border-primary transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePhoto(idx)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600 transition-colors hover:scale-110 active:scale-95"
+                    title="Hapus Foto"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                    </svg>
+                  </button>
+                  <div className="absolute inset-x-0 bottom-0 bg-black/40 text-white text-[8px] text-center rounded-b-xl py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {photo.startsWith("data:") ? "Baru" : "Tersimpan"}
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -312,8 +359,8 @@ export default function ItemForm({ onClose, editingItem, onUpdate }: ItemFormPro
               className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting}
             >
-              {[1, 2, 3, 4, 5].map((fl) => (
-                <option key={fl} value={fl}>Lantai {fl}</option>
+              {FLOOR_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
           </div>

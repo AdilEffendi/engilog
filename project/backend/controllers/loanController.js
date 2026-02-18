@@ -1,4 +1,5 @@
 const { LoanRecord, Item } = require('../models');
+const { createNotification } = require('../utils/notificationHelper');
 
 exports.addLoanRecord = async (req, res) => {
     try {
@@ -18,6 +19,18 @@ exports.addLoanRecord = async (req, res) => {
             item.statusMesin = req.body.statusMesin;
             await item.save();
         }
+
+        // Send Notification
+        const senderId = req.user ? req.user.id : (req.body.peminjam || 'unknown');
+        await createNotification(
+            'ALL',
+            senderId,
+            'info',
+            `Peminjaman baru dicatat untuk Item ID ${itemId}.`,
+            itemId,
+            'loan',
+            req.io
+        );
 
         res.status(201).json(record);
     } catch (err) {
